@@ -97,7 +97,7 @@ getUDP6Sockets() {
 output() {
 	if [[ $header_displayed -eq 0 ]]
 	then
-		printf "%-23s %-23s %-23s %-23s %-23s\n" "Type" "State" "Local Address" "Remote Address" "User"
+		printf "%-23s %-23s %-23s %-23s %-23s\n" "Type" "State" "Local Address" "Remote Address" "uid"
 		header_displayed=1
 	fi
 	printf "%-23s %-23s %-23s %-23s %-23s\n" "$1" "$2" "$3" "$4" "$5"
