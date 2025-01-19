@@ -78,6 +78,17 @@ getTCP4Sockets() {
 		HexIPv4Parser $remote_address "remote_address"
 		local_port=$(printf "%d" "0x$local_port")
 		remote_port=$(printf "%d" "0x$remote_port")
+
+		if [[ $local_port -eq 0 ]]
+		then
+			local_port='*'
+		fi
+
+		if [[ $remote_port -eq 0 ]]
+		then
+			remote_port='*'
+		fi
+
 		output "tcp4" "${TCP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$associated_user"
 	done
 }
