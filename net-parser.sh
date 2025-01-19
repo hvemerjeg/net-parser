@@ -44,7 +44,7 @@ Help() {
 	exit 0
 }
 
-HexIPv4Parser() {
+hexIPv4Parser() {
 	local hex_address=$1
 	local ip=''
 	local pair
@@ -76,7 +76,7 @@ IPv6Shortening() {
 	echo
 }
 
-getTCP4Sockets() {
+getTCPSockets() {
 	while read line
 	do
 		local local_address=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 1)
@@ -89,8 +89,8 @@ getTCP4Sockets() {
 		# PARSING
 		socket_status=$(printf "%d" "0x$socket_status")
 		((socket_status--)) # We start indexing at 0
-		read local_address <<< $(HexIPv4Parser $local_address)
-		read remote_address <<< $(HexIPv4Parser $remote_address)
+		read local_address <<< $(hexIPv4Parser $local_address)
+		read remote_address <<< $(hexIPv4Parser $remote_address)
 		local_port=$(printf "%d" "0x$local_port")
 		remote_port=$(printf "%d" "0x$remote_port")
 
@@ -123,8 +123,8 @@ getUDPSockets() {
 			((socket_status--)) # We start indexing at 0
 		fi
 
-		read local_address <<< $(HexIPv4Parser $local_address)
-		read remote_address <<< $(HexIPv4Parser $remote_address)
+		read local_address <<< $(hexIPv4Parser $local_address)
+		read remote_address <<< $(hexIPv4Parser $remote_address)
 		local_port=$(printf "%d" "0x$local_port")
 		remote_port=$(printf "%d" "0x$remote_port")
 
