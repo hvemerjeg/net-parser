@@ -4,7 +4,6 @@
 # /proc/net/udp, and /proc/net/udp6
 
 # CONSTANTS
-
 declare -r NET_TCP_FILE='/proc/net/tcp'
 declare -r NET_TCP6_FILE='/proc/net/tcp6'
 declare -r NET_UDP_FILE='/proc/net/udp'
@@ -24,12 +23,15 @@ declare -r TCP_STATES=(
     'WAIT'           # 0C
     'NEW_SYN_RECV'   # 0D
 )
-
+# UDP is a stateless protocol
+declare -r UDP_STATES=(
+	'ESTABLISHED' #01
+	'UNNCONNECT'  #07
+)
 ## Colors
 declare -r RED="\033[1;31;40m"
 declare -r RESET_COLOR="\033[0m"
-
-# Global variables
+# Variables
 header_displayed=0 # To control whether the output function was called before \
 	#so we do not displayed the column name (Type, State, Local Address, etc) more than once
 
@@ -71,7 +73,7 @@ wildcardPort() {
 }
 
 getTCP4Sockets() {
-	tail -n +2 $NET_TCP_FILE | while read line
+	while read line
 	do
 		local local_address=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 1)
 		local local_port=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 2)
@@ -90,7 +92,7 @@ getTCP4Sockets() {
 
 		read local_port remote_port <<< $(wildcardPort $local_port $remote_port)
 		output "tcp4" "${TCP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$associated_user"
-	done
+	done < <(tail -n +2 $NET_TCP_FILE)
 }
 
 getTCP6Sockets() {
@@ -98,7 +100,33 @@ getTCP6Sockets() {
 }
 
 getUDPSockets() {
-	echo
+	while read line
+	do
+		local local_address=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 1)
+		local local_port=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 2)
+		local remote_address=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 1)
+		local remote_port=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 2)
+		local socket_status=$(echo "$line" | awk '{print $4}')
+		local associated_user=$(echo "$line" | awk '{print $8}')
+
+		# PARSING
+		socket_status=$(printf "%d" "0x$socket_status")
+		if [[ $socket_status -gt 1 ]]
+		then
+			socket_status=1
+		elif [[ $socket_status -eq 1 ]]
+		then
+			((socket_status--)) # We start indexing at 0
+		fi
+
+		read local_address <<< $(HexIPv4Parser $local_address)
+		read remote_address <<< $(HexIPv4Parser $remote_address)
+		local_port=$(printf "%d" "0x$local_port")
+		remote_port=$(printf "%d" "0x$remote_port")
+
+		read local_port remote_port <<< $(wildcardPort $local_port $remote_port)
+		output "udp4" "${UDP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$associated_user"
+	done < <(tail -n +2 $NET_UDP_FILE)
 }
 
 getUDP6Sockets() {
@@ -162,11 +190,9 @@ main() {
 		then
 			getTCP4Sockets		
 		fi
-
 		if [[ -n $udp ]] 
 		then
-			#TDB
-			echo -e "$RED[+] UDP for IPv4 option is currently under development.$RESET_COLOR"
+			getUDPSockets
 		fi
 
 	fi
