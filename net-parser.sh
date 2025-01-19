@@ -7,7 +7,7 @@
 declare -r NET_TCP_FILE='/proc/net/tcp'
 declare -r NET_TCP6_FILE='/proc/net/tcp6'
 declare -r NET_UDP_FILE='/proc/net/udp'
-declare -r NET_UDP6_FILE='/proc/net/upd6'
+declare -r NET_UDP6_FILE='/proc/net/udp6'
 declare -r TCP_STATES=(
     'ESTABLISHED'    # 01
     'SYN_SENT'       # 02
@@ -70,6 +70,10 @@ wildcardPort() {
 			remote_port='\*'
 		fi
 		echo -n $local_port $remote_port
+}
+
+IPv6Shortening() {
+	echo
 }
 
 getTCP4Sockets() {
