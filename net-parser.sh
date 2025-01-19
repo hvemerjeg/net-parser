@@ -91,7 +91,7 @@ getTCP4Sockets() {
 		remote_port=$(printf "%d" "0x$remote_port")
 
 		read local_port remote_port <<< $(wildcardPort $local_port $remote_port)
-		output "tcp4" "${TCP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$associated_user"
+		output "TCP" "${TCP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$associated_user"
 	done < <(tail -n +2 $NET_TCP_FILE)
 }
 
@@ -125,7 +125,7 @@ getUDPSockets() {
 		remote_port=$(printf "%d" "0x$remote_port")
 
 		read local_port remote_port <<< $(wildcardPort $local_port $remote_port)
-		output "udp4" "${UDP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$associated_user"
+		output "UDP" "${UDP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$associated_user"
 	done < <(tail -n +2 $NET_UDP_FILE)
 }
 
