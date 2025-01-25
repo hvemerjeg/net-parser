@@ -47,33 +47,66 @@ Help() {
 hexIPv4Parser() {
 	local hex_address=$1
 	local ip=''
-	local pair
-	for pair in $(seq $((${#hex_address}-2)) -2 0)
+	local indx
+	for indx in $(seq $((${#hex_address}-2)) -2 0)
 	do
-			local byte=${hex_address:$pair:2}
+			local byte=${hex_address:$indx:2}
 			ip+="$(printf "%d" "0x$byte")."
 	done
 	ip=$(echo $ip | sed "s/\.$//")
 	echo -n $ip
 }
 
-wildcardPort() {
-		local local_port=$1
-		local remote_port=$2
-		if [[ $local_port -eq 0 ]]
-		then
-			local_port='\*'
-		fi
+IPv6Parser() {
+	local hex_address=$1
+	local ip=''
+	local indx
+	local splitted_hex_address="$(echo $hex_address | grep -Eo '[0-9A-F]{8}' | tr $'\n' ' ')"
+	for four_bytes in ${splitted_hex_address[@]}
+	do
+		local count=0
+		for indx in $(seq $((${#four_bytes}-2)) -2 0)
+		do
+				local byte="${four_bytes:$indx:2}"
+				ip+="$byte"
+				((count++))
+				if (( $count % 2 == 0 ))
+				then
+					ip+=":"
+				fi
 
-		if [[ $remote_port -eq 0 ]]
-		then
-			remote_port='\*'
-		fi
-		echo -n $local_port $remote_port
+		done
+	done
+	echo -n "$ip" | tr -d ' ' | sed 's/:$//' | tr '[:upper:]' '[:lower:]'
+}
+
+wildcardPort() {
+	local port=$1
+	if [[ $port -eq 0 ]]
+	then
+		port='\*'
+	fi
+	echo -n $port
 }
 
 IPv6Shortening() {
-	echo
+	local ipv6=$1
+	# all interfaces
+	if [[ $ipv6 =~ ^(0{4}:){7}0{4}$ ]]
+	then
+		ipv6='::'
+		echo -n $ipv6
+		return 0
+	fi
+	# Single groups of zeros
+	ipv6=$(echo $ipv6 | sed -E 's/(0{4})/0/g')	
+	echo -n $ipv6
+
+	# Consecutive groups of zeros
+
+	# leading zeros
+	ipv6=$(echo $ipv6 | sed -E 's/^0{1,4}://;s/:0{1,3}/:/g')
+
 }
 
 getTCPSockets() {
@@ -84,7 +117,7 @@ getTCPSockets() {
 		local remote_address=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 1)
 		local remote_port=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 2)
 		local socket_status=$(echo "$line" | awk '{print $4}')
-		local associated_user=$(echo "$line" | awk '{print $8}')
+		local uid=$(echo "$line" | awk '{print $8}')
 
 		# PARSING
 		socket_status=$(printf "%d" "0x$socket_status")
@@ -94,13 +127,36 @@ getTCPSockets() {
 		local_port=$(printf "%d" "0x$local_port")
 		remote_port=$(printf "%d" "0x$remote_port")
 
-		read local_port remote_port <<< $(wildcardPort $local_port $remote_port)
-		output "TCP" "${TCP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$associated_user"
+		read local_port <<< $(wildcardPort $local_port)
+		read remote_port <<< $(wildcardPort $remote_port)
+		output "TCP" "${TCP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$uid"
 	done < <(tail -n +2 $NET_TCP_FILE)
 }
 
 getTCP6Sockets() {
-	echo	
+	while read line
+	do
+		local local_address=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 1)
+		local local_port=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 2)
+		local remote_address=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 1)
+		local remote_port=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 2)
+		local socket_status=$(echo "$line" | awk '{print $4}')
+		local uid=$(echo "$line" | awk '{print $8}')
+
+		# PARSING
+		socket_status=$(printf "%d" "0x$socket_status")
+		((socket_status--)) # We start indexing at 0
+		read local_address <<< $(IPv6Parser $local_address)
+		read remote_address <<< $(IPv6Parser $remote_address)
+		local_port=$(printf "%d" "0x$local_port")
+		remote_port=$(printf "%d" "0x$remote_port")
+
+		read local_port <<< $(wildcardPort $local_port)
+		read remote_port <<< $(wildcardPort $remote_port)
+		read local_address <<< $(IPv6Shortening $local_address)
+		read remote_address <<< $(IPv6Shortening $remote_address)
+		output "TCP" "${TCP_STATES[$socket_status]}" "[$local_address]:$local_port" "[$remote_address]:$remote_port" "$uid"
+	done < <(tail -n +2 $NET_TCP6_FILE)
 }
 
 getUDPSockets() {
@@ -111,7 +167,7 @@ getUDPSockets() {
 		local remote_address=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 1)
 		local remote_port=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 2)
 		local socket_status=$(echo "$line" | awk '{print $4}')
-		local associated_user=$(echo "$line" | awk '{print $8}')
+		local uid=$(echo "$line" | awk '{print $8}')
 
 		# PARSING
 		socket_status=$(printf "%d" "0x$socket_status")
@@ -128,8 +184,9 @@ getUDPSockets() {
 		local_port=$(printf "%d" "0x$local_port")
 		remote_port=$(printf "%d" "0x$remote_port")
 
-		read local_port remote_port <<< $(wildcardPort $local_port $remote_port)
-		output "UDP" "${UDP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$associated_user"
+		read local_port <<< $(wildcardPort $local_port)
+		read remote_port <<< $(wildcardPort $remote_port)
+		output "UDP" "${UDP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$uid"
 	done < <(tail -n +2 $NET_UDP_FILE)
 }
 
@@ -140,10 +197,10 @@ getUDP6Sockets() {
 output() {
 	if [[ $header_displayed -eq 0 ]]
 	then
-		printf "%-23s %-23s %-23s %-23s %-23s\n" "Type" "State" "Local Address" "Remote Address" "uid"
+		printf "%-17s %-17s %-45s %-45s %-20s\n" "Type" "State" "Local Address" "Remote Address" "uid"
 		header_displayed=1
 	fi
-	printf "%-23s %-23s %-23s %-23s %-23s\n" "$1" "$2" "$3" "$4" "$5"
+	printf "%-17s %-17s %-45s %-45s %-20s\n" "$1" "$2" "$3" "$4" "$5"
 }
 
 main() {
@@ -171,13 +228,26 @@ main() {
 		Help
 	fi
 
+	# IPv4
+	if [[ -n $ipv4 ]] 
+	then
+		if [[ -n $tcp ]] 
+		then
+			getTCPSockets		
+		fi
+		if [[ -n $udp ]] 
+		then
+			getUDPSockets
+		fi
+
+	fi
+	
 	# IPv6
 	if [[ -n $ipv6 ]]
 	then
 		if [[ -n $tcp ]]
 		then
-			#TBD
-			echo -e "$RED[+] TCP for IPv6 option is currently under development.$RESET_COLOR"
+			getTCP6Sockets
 		fi
 
 		if [[ -n $udp ]]
@@ -187,19 +257,6 @@ main() {
 		fi
 	fi
 
-	# IPv4
-	if [[ -n $ipv4 ]] 
-	then
-		if [[ -n $tcp ]] 
-		then
-			getTCP4Sockets		
-		fi
-		if [[ -n $udp ]] 
-		then
-			getUDPSockets
-		fi
-
-	fi
 }
 
 main "$@"
