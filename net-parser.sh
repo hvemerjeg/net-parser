@@ -37,8 +37,8 @@ header_displayed=0 # To control whether the output function was called before \
 
 Help() {
 	echo -e "-h, --help\t\tGet help for commands."
-	echo -e "-u, --udp\t\tGet udp sockets."
-	echo -e "-t, --tcp\t\tGet tcp sockets."
+	echo -e "-u, --udp\t\tGet UDP sockets."
+	echo -e "-t, --tcp\t\tGet TCP sockets."
 	echo -e "-6, --ipv6\t\tDisplay IP version 6 sockets."
 	echo -e "-4, --ipv4\t\tDisplay IP version 4 sockets."
 	exit 0
