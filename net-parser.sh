@@ -112,14 +112,24 @@ IPv6Shortening() {
 		return 0
 	fi
 	# Single groups of zeros
-	ipv6=$(echo $ipv6 | sed -E 's/(0{4})/0/g')	
-	echo -n $ipv6
-
-	# Consecutive groups of zeros
+	ipv6=$(echo $ipv6 | sed -E 's/(0{4})/0/g')
 
 	# leading zeros
-	ipv6=$(echo $ipv6 | sed -E 's/^0{1,4}://;s/:0{1,3}/:/g')
+	ipv6=$(echo $ipv6 | sed -E 's/0+([1-9a-f]+)/\1/g')
 
+	# Consecutive groups of zeros
+	local max_group=7
+	while [[ $max_group -gt 0 ]]
+	do
+		regex="(^(0:){$max_group}|(:0){$max_group})"
+		if [[ $ipv6 =~ $regex ]]
+		then
+			ipv6=$(echo $ipv6 | sed -E "s/$regex/:/")
+			break
+		fi
+		((max_group--))
+	done
+	echo -n $ipv6
 }
 
 getTCPSockets() {
@@ -196,7 +206,34 @@ getUDPSockets() {
 }
 
 getUDP6Sockets() {
-	echo
+	local n_lines=$(wc -l $NET_UDP6_FILE | awk '{print $1}')
+	local current_line=2 # We do not read the headers
+	while [[ $current_line -le $n_lines ]]
+	do
+
+		read local_address local_port remote_address remote_port socket_status uid <<< $(readProcNetLine $NET_UDP6_FILE $current_line)
+		((current_line++))
+		# PARSING
+		socket_status=$(printf "%d" "0x$socket_status")
+		if [[ $socket_status -gt 1 ]]
+		then
+			socket_status=1
+		elif [[ $socket_status -eq 1 ]]
+		then
+			((socket_status--)) # We start indexing at 0
+		fi
+
+		read local_address <<< $(IPv6Parser $local_address)
+		read remote_address <<< $(IPv6Parser $remote_address)
+		local_port=$(printf "%d" "0x$local_port")
+		remote_port=$(printf "%d" "0x$remote_port")
+
+		read local_port <<< $(wildcardPort $local_port)
+		read remote_port <<< $(wildcardPort $remote_port)
+		read local_address <<< $(IPv6Shortening $local_address)
+		read remote_address <<< $(IPv6Shortening $remote_address)
+		output "UDP" "${UDP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$uid"
+	done
 }
 
 output() {
@@ -258,7 +295,7 @@ main() {
 		if [[ -n $udp ]]
 		then
 			#TDB
-			echo -e "$RED[+] UDP for IPv6 option is currently under development.$RESET_COLOR"
+			getUDP6Sockets
 		fi
 	fi
 
