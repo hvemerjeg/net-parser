@@ -44,6 +44,19 @@ Help() {
 	exit 0
 }
 
+# Reads a specific line from /proc/net tcp or udp files
+readProcNetLine() {
+	proc_net_file=$1
+	line=$2
+	local local_address=$(cat $proc_net_file | cut -d $'\n' -f$line | awk '{print $2}' | cut -d ':' -f 1)
+	local local_port=$(cat $proc_net_file | cut -d $'\n' -f$line | awk '{print $2}' | cut -d ':' -f 2)
+	local remote_address=$(cat $proc_net_file | cut -d $'\n' -f$line | awk '{print $3}' | cut -d ':' -f 1)
+	local remote_port=$(cat $proc_net_file | cut -d $'\n' -f $line | awk '{print $3}' | cut -d ':' -f 2)
+	local socket_status=$(cat $proc_net_file | cut -d $'\n' -f$line | awk '{print $4}')
+	local uid=$(cat $proc_net_file | cut -d $'\n' -f$line | awk '{print $8}')
+	echo -n "$local_address" "$local_port" "$remote_address" "$remote_port" "$socket_status" "$uid"
+}
+
 hexIPv4Parser() {
 	local hex_address=$1
 	local ip=''
@@ -110,15 +123,12 @@ IPv6Shortening() {
 }
 
 getTCPSockets() {
-	while read line
+	local n_lines=$(wc -l $NET_TCP_FILE | awk '{print $1}')
+	local current_line=2 # We do not read the headers
+	while [[ $current_line -le $n_lines ]]
 	do
-		local local_address=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 1)
-		local local_port=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 2)
-		local remote_address=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 1)
-		local remote_port=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 2)
-		local socket_status=$(echo "$line" | awk '{print $4}')
-		local uid=$(echo "$line" | awk '{print $8}')
-
+		read local_address local_port remote_address remote_port socket_status uid <<< $(readProcNetLine $NET_TCP_FILE $current_line)
+		((current_line++))
 		# PARSING
 		socket_status=$(printf "%d" "0x$socket_status")
 		((socket_status--)) # We start indexing at 0
@@ -130,19 +140,16 @@ getTCPSockets() {
 		read local_port <<< $(wildcardPort $local_port)
 		read remote_port <<< $(wildcardPort $remote_port)
 		output "TCP" "${TCP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$uid"
-	done < <(tail -n +2 $NET_TCP_FILE)
+	done
 }
 
 getTCP6Sockets() {
-	while read line
+	local n_lines=$(wc -l $NET_TCP6_FILE | awk '{print $1}')
+	local current_line=2 # We do not read the headers
+	while [[ $current_line -le $n_lines ]]
 	do
-		local local_address=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 1)
-		local local_port=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 2)
-		local remote_address=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 1)
-		local remote_port=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 2)
-		local socket_status=$(echo "$line" | awk '{print $4}')
-		local uid=$(echo "$line" | awk '{print $8}')
-
+		read local_address local_port remote_address remote_port socket_status uid <<< $(readProcNetLine $NET_TCP6_FILE $current_line)
+		((current_line++))
 		# PARSING
 		socket_status=$(printf "%d" "0x$socket_status")
 		((socket_status--)) # We start indexing at 0
@@ -156,19 +163,17 @@ getTCP6Sockets() {
 		read local_address <<< $(IPv6Shortening $local_address)
 		read remote_address <<< $(IPv6Shortening $remote_address)
 		output "TCP" "${TCP_STATES[$socket_status]}" "[$local_address]:$local_port" "[$remote_address]:$remote_port" "$uid"
-	done < <(tail -n +2 $NET_TCP6_FILE)
+	done
 }
 
 getUDPSockets() {
-	while read line
+	local n_lines=$(wc -l $NET_UDP_FILE | awk '{print $1}')
+	local current_line=2 # We do not read the headers
+	while [[ $current_line -le $n_lines ]]
 	do
-		local local_address=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 1)
-		local local_port=$(echo "$line" | awk '{print $2}' | cut -d ':' -f 2)
-		local remote_address=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 1)
-		local remote_port=$(echo "$line" | awk '{print $3}' | cut -d ':' -f 2)
-		local socket_status=$(echo "$line" | awk '{print $4}')
-		local uid=$(echo "$line" | awk '{print $8}')
 
+		read local_address local_port remote_address remote_port socket_status uid <<< $(readProcNetLine $NET_UDP_FILE $current_line)
+		((current_line++))
 		# PARSING
 		socket_status=$(printf "%d" "0x$socket_status")
 		if [[ $socket_status -gt 1 ]]
@@ -187,7 +192,7 @@ getUDPSockets() {
 		read local_port <<< $(wildcardPort $local_port)
 		read remote_port <<< $(wildcardPort $remote_port)
 		output "UDP" "${UDP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$uid"
-	done < <(tail -n +2 $NET_UDP_FILE)
+	done
 }
 
 getUDP6Sockets() {
