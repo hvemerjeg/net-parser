@@ -112,7 +112,7 @@ IPv6Shortening() {
 		return 0
 	fi
 	# Single groups of zeros
-	ipv6=$(echo $ipv6 | sed -E 's/(0{4})/0/g')
+	ipv6=$(echo $ipv6 | sed -E 's/0{4}/0/g')
 
 	# leading zeros
 	ipv6=$(echo $ipv6 | sed -E 's/0+([1-9a-f]+)/\1/g')
@@ -232,7 +232,7 @@ getUDP6Sockets() {
 		read remote_port <<< $(wildcardPort $remote_port)
 		read local_address <<< $(IPv6Shortening $local_address)
 		read remote_address <<< $(IPv6Shortening $remote_address)
-		output "UDP" "${UDP_STATES[$socket_status]}" "$local_address:$local_port" "$remote_address:$remote_port" "$uid"
+		output "UDP" "${UDP_STATES[$socket_status]}" "[$local_address]:$local_port" "[$remote_address]:$remote_port" "$uid"
 	done
 }
 
