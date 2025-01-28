@@ -135,6 +135,7 @@ IPv6Shortening() {
 getTCPSockets() {
 	local n_lines=$(wc -l $NET_TCP_FILE | awk '{print $1}')
 	local current_line=2 # We do not read the headers
+	local local_address local_port remote_address remote_port socket_status uid
 	while [[ $current_line -le $n_lines ]]
 	do
 		read local_address local_port remote_address remote_port socket_status uid <<< $(readProcNetLine $NET_TCP_FILE $current_line)
@@ -156,6 +157,7 @@ getTCPSockets() {
 getTCP6Sockets() {
 	local n_lines=$(wc -l $NET_TCP6_FILE | awk '{print $1}')
 	local current_line=2 # We do not read the headers
+	local local_address local_port remote_address remote_port socket_status uid
 	while [[ $current_line -le $n_lines ]]
 	do
 		read local_address local_port remote_address remote_port socket_status uid <<< $(readProcNetLine $NET_TCP6_FILE $current_line)
@@ -179,6 +181,7 @@ getTCP6Sockets() {
 getUDPSockets() {
 	local n_lines=$(wc -l $NET_UDP_FILE | awk '{print $1}')
 	local current_line=2 # We do not read the headers
+	local local_address local_port remote_address remote_port socket_status uid
 	while [[ $current_line -le $n_lines ]]
 	do
 
@@ -208,6 +211,7 @@ getUDPSockets() {
 getUDP6Sockets() {
 	local n_lines=$(wc -l $NET_UDP6_FILE | awk '{print $1}')
 	local current_line=2 # We do not read the headers
+	local local_address local_port remote_address remote_port socket_status uid
 	while [[ $current_line -le $n_lines ]]
 	do
 
